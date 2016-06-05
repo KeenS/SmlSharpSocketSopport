@@ -1,7 +1,6 @@
 structure NetHostDBTest = struct
     open SMLUnit
     open NetHostDB
-    open Common
     open Assert
     fun println str = print (str ^ "\n")
 

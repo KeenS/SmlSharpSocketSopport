@@ -1,7 +1,8 @@
 
-structure NetHostDB :> NET_HOST_DB = struct
-
-    open Common
+structure NetHostDB :> NET_HOST_DB
+                            where type addr_family = int
+= struct
+    type addr_family = int
 
     type in_addr_ = unit ptr
     type in_addr = (addr_family * in_addr_)
@@ -33,7 +34,7 @@ structure NetHostDB :> NET_HOST_DB = struct
     fun toString (family, in_addr) = let
         val ret = ref ""
     in
-        c_to_string(familyToInt family, in_addr, (fn cptr => (ret := Pointer.importString cptr)));
+        c_to_string(family, in_addr, (fn cptr => (ret := Pointer.importString cptr)));
         !ret
     end
     val name =  #canonname
@@ -50,11 +51,11 @@ structure NetHostDB :> NET_HOST_DB = struct
         else let
             val canonname = Pointer.importString (c_get_canonname entry)
             val aliases = []
-            val topFamily = familyFromInt (c_get_family entry)
+            val topFamily = c_get_family entry
             fun loop entry acc = if Pointer.isNull entry
                                  then List.rev acc
                                  else let
-                                     val family = familyFromInt (c_get_family entry)
+                                     val family = c_get_family entry
                                      val addr = c_get_addr entry
                                      val next = c_get_next entry
                                  in loop next ((family, addr):: acc) end
@@ -68,7 +69,7 @@ structure NetHostDB :> NET_HOST_DB = struct
 
     fun getByAddr (family, addr) = let
         val name = ref ""
-        val () = c_get_nameinfo(familyToInt family, addr, (fn cptr => name := Pointer.importString cptr))
+        val () = c_get_nameinfo(family, addr, (fn cptr => name := Pointer.importString cptr))
     in
         getByName (!name)
     end
@@ -87,6 +88,6 @@ structure NetHostDB :> NET_HOST_DB = struct
     in
         if Pointer.isNull ret
         then NONE
-        else SOME (familyFromInt (!family), ret)
+        else SOME (!family, ret)
     end
 end

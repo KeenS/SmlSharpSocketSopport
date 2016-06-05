@@ -1,11 +1,12 @@
 _require "basis.smi"
 _require "ffi.smi"
 _require "NET_HOST_DB.sig"
-_require "Common.smi"
 
 structure NetHostDB = struct
-    type in_addr (= boxed)
-    eqtype addr_family (= contag)
+    eqtype in_addr (= boxed)
+
+    type addr_family = int
+
 
     type entry (= boxed)
     val name : entry -> string

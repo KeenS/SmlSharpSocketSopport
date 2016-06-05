@@ -1,69 +1,101 @@
 
 structure NetHostDB = struct
-    type in_addr = unit ptr
 
     datatype addr_family =
-             AF_INET4
+             AF_INET
            | AF_INET6
+
+    type in_addr_ = unit ptr
+    type in_addr = (addr_family * in_addr_)
 
     type addrinfo = unit ptr
 
 
-    type entry = addrinfo
+    type entry = {
+        canonname: string,
+        aliases: string list,
+        addrType: addr_family,
+        addrs: in_addr list
+    }
 
-    fun familyFromInt 0 = AF_INET4
+    fun familyFromInt 0 = AF_INET
       | familyFromInt 1 = AF_INET6
       | familyFromInt _ = raise Fail "unknown address family returned from C"
 
-    val c_to_string     = _import "sml_nhd_inaddr_to_string":(in_addr) -> char ptr
-    val c_from_string   = _import "sml_nhd_inaddr_from_string": (string) -> in_addr
-    val c_get_addr      = _import "sml_nhd_addrinfo_get_addr": (addrinfo) -> in_addr
+    fun familyToInt AF_INET  = 0
+      | familyToInt AF_INET6 = 1
+
+    val c_to_string     = _import "sml_nhd_inaddr_to_string":(int, in_addr_, char ptr -> ()) -> ()
+    val c_from_string   = _import "sml_nhd_inaddr_from_string": (string, int ref) -> in_addr_
+    val c_get_addr      = _import "sml_nhd_addrinfo_get_addr": (addrinfo) -> in_addr_
     val c_get_canonname = _import "sml_nhd_addrinfo_get_canonname": (addrinfo) -> char ptr
     val c_get_next      = _import "sml_nhd_addrinfo_get_next": (addrinfo) -> addrinfo
     val c_get_family    = _import "sml_nhd_addrinfo_get_family": (addrinfo) -> int
     val c_free          = _import "sml_nhd_addrinfo_free": (addrinfo) -> ()
     val c_get_by_name   = _import "sml_nhd_get_by_name": (string) -> addrinfo
-    val c_get_host_name = _import "sml_nhd_get_host_name": () -> char ptr
+    val c_get_nameinfo  = _import "sml_nhd_get_nameinfo": (int, in_addr_, char ptr -> ()) -> ()
+    val c_get_host_name = _import "sml_nhd_get_host_name": (char ptr -> ()) -> ()
 
 
-    fun entries entry = let
-        fun loop entry acc = if Pointer.isNull entry
-                             then List.rev acc
-                             else let
-                                 val next = c_get_next entry
-                             in loop next (entry:: acc) end
-        val entries = loop entry []
 
+    fun toString (family, in_addr) = let
+        val ret = ref ""
     in
-        entries
+        c_to_string(familyToInt family, in_addr, (fn cptr => (ret := Pointer.importString cptr)));
+        !ret
     end
-
-
-    val name = Pointer.importString o c_get_canonname
-    val toString = Pointer.importString o c_to_string
+    val name =  #canonname
     val aliases  = (fn x => x :: []) o name
-    val addrType = familyFromInt o c_get_family
-    val addr  = c_get_addr
-    val addrs = List.map c_get_addr o entries
+    val addrType = #addrType
+    val addrs = #addrs
+    val addr  = List.hd o addrs
 
     fun getByName name = let
         val entry = c_get_by_name name
     in
         if Pointer.isNull entry
         then NONE
-        else SOME entry
+        else let
+            val canonname = Pointer.importString (c_get_canonname entry)
+            val aliases = []
+            val topFamily = familyFromInt (c_get_family entry)
+            fun loop entry acc = if Pointer.isNull entry
+                                 then List.rev acc
+                                 else let
+                                     val family = familyFromInt (c_get_family entry)
+                                     val addr = c_get_addr entry
+                                     val next = c_get_next entry
+                                 in loop next ((family, addr):: acc) end
+            val addrs = loop entry []
+
+        in
+            c_free entry;
+            SOME {addrType = topFamily, canonname = canonname, aliases = aliases, addrs = addrs}
+        end
     end
 
-    (* val getByAddr : in_addr -> entry option *)
-    val getHostName : unit -> string = Pointer.importString o c_get_host_name
+    fun getByAddr (family, addr) = let
+        val name = ref ""
+        val () = c_get_nameinfo(familyToInt family, addr, (fn cptr => name := Pointer.importString cptr))
+    in
+        getByName (!name)
+    end
+
+    fun getHostName () = let
+        val ret = ref ""
+    in
+        c_get_host_name (fn cptr => ret := Pointer.importString cptr);
+        !ret
+    end
 
     (* val scan       : (char, 'a) StringCvt.reader *)
     (*                  -> (in_addr, 'a) StringCvt.reader *)
     fun fromString name = let
-        val ret = c_from_string name
+        val family = ref ~1
+        val ret = c_from_string(name, family)
     in
         if Pointer.isNull ret
-        then SOME ret
-        else NONE
+        then NONE
+        else SOME (familyFromInt (!family), ret)
     end
 end

@@ -23,7 +23,12 @@ typedef int sml_addr_family;
 struct sockaddr *
 sml_nhd_addrinfo_get_addr(const struct addrinfo *info)
 {
-  return info->ai_addr;
+  struct sockaddr *ret;
+
+  ret = malloc(info->ai_addrlen);
+  memcpy(ret, info->ai_addr, info->ai_addrlen);
+
+  return ret;
 }
 
 sml_addr_family
@@ -77,62 +82,109 @@ sml_nhd_get_by_name(const char* name)
   return result;
 }
 
-
-
-const char *
-sml_nhd_get_host_name()
+void
+sml_nhd_get_nameinfo(int family, const void *addr, void(callback)(const char *))
 {
-  char *hostname;
+  char host[NI_MAXHOST];
   int ret;
+  struct sockaddr_storage sock;
+  socklen_t len;
 
-  hostname = malloc(HOST_NAME_MAX+1);
+  memset(&sock, 0, sizeof(struct sockaddr_storage));
 
-  ret = gethostname(hostname, sizeof(hostname));
-  /* ignoring return value and error */
+  switch(family) {
+  case SML_AF_INET4: {
+    struct sockaddr_in *in;
+    in = (struct sockaddr_in*)&sock;
+    len = sizeof(struct sockaddr_in6);
+    in->sin_addr = *(struct in_addr *)addr;
+    in->sin_family = AF_INET;
+    break;
 
-  return hostname;
+  }
+  case SML_AF_INET6: {
+    struct sockaddr_in6 *in;
+    in = (struct sockaddr_in6*)&sock;
+    len = sizeof(struct sockaddr_in6);
+    in->sin6_addr = *(struct in6_addr *)addr;
+    in->sin6_family = AF_INET6;
+    break;
+
+  }
+    /* FIXME: handle error */
+  default: exit(1);
+  }
+
+  ret = getnameinfo((struct sockaddr *)&sock, len, host, NI_MAXHOST, NULL, 0, 0);
+
+  if (ret != 0) {
+    callback(NULL);
+  }
+  else {
+    callback(host);
+  }
 
 }
 
 
-const char *
-sml_nhd_inaddr_to_string(struct sockaddr *in)
+void
+sml_nhd_get_host_name(void (callback)(const char *))
 {
-  int ai_family;
-  char *ret;
-  void *addr;
+  char hostname[HOST_NAME_MAX+1];
+  int ret;
+
+
+  ret = gethostname(hostname, sizeof(hostname));
+  /* ignoring return value and error */
+  callback(hostname);
+}
+
+
+void
+sml_nhd_inaddr_to_string(int sml_addr_family, void *in, void (callback)(const char *))
+{
+  const char *ret;
   size_t strsize;
 
-  ai_family = in->sa_family;
-
-  switch(ai_family) {
-  case AF_INET:
-    strsize = INET_ADDRSTRLEN;
-    addr = &((struct sockaddr_in *)in)->sin_addr;
-    break;
-  case AF_INET6:
-    strsize = INET6_ADDRSTRLEN;
-    addr = &((struct sockaddr_in6 *)in)->sin6_addr;
-    break;
+  switch(sml_addr_family) {
+  case SML_AF_INET4: {
+    char value[INET_ADDRSTRLEN];
+    strsize=INET_ADDRSTRLEN;
+    ret = inet_ntop(AF_INET, in, value, strsize);
+    callback(ret);
+    return;
+  }
+  case SML_AF_INET6: {
+    char value[INET6_ADDRSTRLEN];
+    strsize=INET6_ADDRSTRLEN;
+    ret = inet_ntop(AF_INET6, in, value, strsize);
+    callback(ret);
+    return;
+  }
   default:
     /* FIXME: find appropriate way */
     exit(1);
   }
 
-  ret = malloc(strsize);
-  return inet_ntop(ai_family, addr, ret, strsize);
+
 }
 
 
 struct sockaddr *
-sml_nhd_inaddr_from_string(const char *str)
+sml_nhd_inaddr_from_string(const char *str, int *family)
 {
   int ret;
-  struct sockaddr *result;
+  struct in_addr result_in;
+  struct in6_addr result_in6;
+  void *result;
 
-  result = malloc(sizeof(struct in_addr));
-  ret = inet_pton(AF_INET, str, result);
+
+  memset(&result_in, 0, sizeof(struct sockaddr_in));
+  ret = inet_pton(AF_INET, str, &result_in);
   if (ret == 1) {
+    result = malloc(sizeof(struct in_addr));
+    memcpy(result, &result_in, sizeof(struct in_addr));
+    *family = SML_AF_INET4;
     return result;
   }
   if (ret == -1) {
@@ -140,10 +192,12 @@ sml_nhd_inaddr_from_string(const char *str)
   }
   // if ret is 0, str may be inet6 addr
 
-  result = realloc(result, sizeof(struct in6_addr));
-  ret = inet_pton(AF_INET6, str, result);
-
+  memset(&result_in6, 0, sizeof(struct in6_addr));
+  ret = inet_pton(AF_INET6, str, &result_in6);
   if (ret == 1) {
+    result = malloc(sizeof(struct in6_addr));
+    memcpy(result, &result_in6, sizeof(struct in6_addr));
+    *family = SML_AF_INET6;
     return result;
   }
   return NULL;

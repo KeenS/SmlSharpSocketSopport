@@ -1,9 +1,7 @@
 
-structure NetHostDB = struct
+structure NetHostDB :> NET_HOST_DB = struct
 
-    datatype addr_family =
-             AF_INET
-           | AF_INET6
+    open Common
 
     type in_addr_ = unit ptr
     type in_addr = (addr_family * in_addr_)
@@ -18,12 +16,6 @@ structure NetHostDB = struct
         addrs: in_addr list
     }
 
-    fun familyFromInt 0 = AF_INET
-      | familyFromInt 1 = AF_INET6
-      | familyFromInt _ = raise Fail "unknown address family returned from C"
-
-    fun familyToInt AF_INET  = 0
-      | familyToInt AF_INET6 = 1
 
     val c_to_string     = _import "sml_nhd_inaddr_to_string":(int, in_addr_, char ptr -> ()) -> ()
     val c_from_string   = _import "sml_nhd_inaddr_from_string": (string, int ref) -> in_addr_
@@ -88,8 +80,7 @@ structure NetHostDB = struct
         !ret
     end
 
-    (* val scan       : (char, 'a) StringCvt.reader *)
-    (*                  -> (in_addr, 'a) StringCvt.reader *)
+    fun scan reader = raise Fail "unimplemented"
     fun fromString name = let
         val family = ref ~1
         val ret = c_from_string(name, family)

@@ -6,15 +6,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <limits.h>
-
-#define SML_AF_INET4 0
-#define SML_AF_INET6 1
-#define SML_AF_INET_UNKNOWN -1
-
-
-/* TODO: more checks */
-#define smlaf_to_af(af) (af) == SML_AF_INET4 ? AF_INET : AF_INET6
-
+#include "net_host_db.h"
 
 typedef int sml_addr_family;
 

@@ -1,14 +1,13 @@
 _require "basis.smi"
 _require "ffi.smi"
+_require "NET_HOST_DB.sig"
+_require "Common.smi"
 
 structure NetHostDB = struct
     type in_addr (= boxed)
-    datatype addr_family =
-         AF_INET
-       | AF_INET6
+    eqtype addr_family (= contag)
 
     type entry (= boxed)
-
     val name : entry -> string
     val aliases : entry -> string list
     val addrType : entry -> addr_family
@@ -19,7 +18,7 @@ structure NetHostDB = struct
     val getHostName : unit -> string
 
     val toString : in_addr -> string
-    (* val scan       : (char, 'a) StringCvt.reader *)
-    (*                  -> (in_addr, 'a) StringCvt.reader *)
+    val scan       : (char, 'a) StringCvt.reader
+                     -> (in_addr, 'a) StringCvt.reader
     val fromString : string -> in_addr option
 end

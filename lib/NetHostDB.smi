@@ -1,0 +1,25 @@
+_require "basis.smi"
+_require "ffi.smi"
+
+structure NetHostDB = struct
+    type in_addr (= ptr)
+    datatype addr_family =
+         AF_INET4
+       | AF_INET6
+
+    type entry (= ptr)
+
+    val name : entry -> string
+    val aliases : entry -> string list
+    val addrType : entry -> addr_family
+    val addr : entry -> in_addr
+    val addrs : entry -> in_addr list
+    val getByName : string -> entry option
+    (* val getByAddr : in_addr -> entry option *)
+    val getHostName : unit -> string
+
+    val toString : in_addr -> string
+    (* val scan       : (char, 'a) StringCvt.reader *)
+    (*                  -> (in_addr, 'a) StringCvt.reader *)
+    val fromString : string -> in_addr option
+end

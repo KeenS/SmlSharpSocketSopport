@@ -1,0 +1,7 @@
+_require "basis.smi"
+_require "smlunit-lib.smi"
+_require "NetHostDB.smi"
+
+structure NetHostDBTest = struct
+    val suite: SMLUnit.Test.test
+end

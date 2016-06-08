@@ -22,41 +22,41 @@ signature SOCKET = sig
                   val fromString : string -> sock_type option
               end
 
-    (* structure Ctl : sig *)
-    (*               val getDEBUG : ('af, 'sock_type) sock -> bool *)
-    (*               val setDEBUG : ('af, 'sock_type) sock * bool -> unit *)
-    (*               val getREUSEADDR : ('af, 'sock_type) sock -> bool *)
-    (*               val setREUSEADDR : ('af, 'sock_type) sock * bool *)
-    (*                                  -> unit *)
-    (*               val getKEEPALIVE : ('af, 'sock_type) sock -> bool *)
-    (*               val setKEEPALIVE : ('af, 'sock_type) sock * bool *)
-    (*                                  -> unit *)
-    (*               val getDONTROUTE : ('af, 'sock_type) sock -> bool *)
-    (*               val setDONTROUTE : ('af, 'sock_type) sock * bool *)
-    (*                                  -> unit *)
-    (*               val getLINGER : ('af, 'sock_type) sock *)
-    (*                               -> Time.time option *)
-    (*               val setLINGER : ('af, 'sock_type) sock *)
-    (*                               * Time.time option -> unit *)
-    (*               val getBROADCAST : ('af, 'sock_type) sock -> bool *)
-    (*               val setBROADCAST : ('af, 'sock_type) sock * bool *)
-    (*                                  -> unit *)
-    (*               val getOOBINLINE : ('af, 'sock_type) sock -> bool *)
-    (*               val setOOBINLINE : ('af, 'sock_type) sock * bool *)
-    (*                                  -> unit *)
-    (*               val getSNDBUF : ('af, 'sock_type) sock -> int *)
-    (*               val setSNDBUF : ('af, 'sock_type) sock * int -> unit *)
-    (*               val getRCVBUF : ('af, 'sock_type) sock -> int *)
-    (*               val setRCVBUF : ('af, 'sock_type) sock * int -> unit *)
-    (*               val getTYPE : ('af, 'sock_type) sock -> SOCK.sock_type *)
-    (*               val getERROR : ('af, 'sock_type) sock -> bool *)
-    (*               val getPeerName : ('af, 'sock_type) sock *)
-    (*                                 -> 'af sock_addr *)
+    structure Ctl : sig
+                  val getDEBUG : ('af, 'sock_type) sock -> bool
+                  val setDEBUG : ('af, 'sock_type) sock * bool -> unit
+                  val getREUSEADDR : ('af, 'sock_type) sock -> bool
+                  val setREUSEADDR : ('af, 'sock_type) sock * bool
+                                     -> unit
+                  val getKEEPALIVE : ('af, 'sock_type) sock -> bool
+                  val setKEEPALIVE : ('af, 'sock_type) sock * bool
+                                     -> unit
+                  val getDONTROUTE : ('af, 'sock_type) sock -> bool
+                  val setDONTROUTE : ('af, 'sock_type) sock * bool
+                                     -> unit
+                  val getLINGER : ('af, 'sock_type) sock
+                                  -> Time.time option
+                  val setLINGER : ('af, 'sock_type) sock
+                                  * Time.time option -> unit
+                  val getBROADCAST : ('af, 'sock_type) sock -> bool
+                  val setBROADCAST : ('af, 'sock_type) sock * bool
+                                     -> unit
+                  val getOOBINLINE : ('af, 'sock_type) sock -> bool
+                  val setOOBINLINE : ('af, 'sock_type) sock * bool
+                                     -> unit
+                  val getSNDBUF : ('af, 'sock_type) sock -> int
+                  val setSNDBUF : ('af, 'sock_type) sock * int -> unit
+                  val getRCVBUF : ('af, 'sock_type) sock -> int
+                  val setRCVBUF : ('af, 'sock_type) sock * int -> unit
+                  val getTYPE : ('af, 'sock_type) sock -> SOCK.sock_type
+                  val getERROR : ('af, 'sock_type) sock -> bool
+                  val getPeerName : ('af, 'sock_type) sock
+                                    -> 'af sock_addr
     (*               val getSockName : ('af, 'sock_type) sock *)
     (*                                 -> 'af sock_addr *)
     (*               val getNREAD : ('af, 'sock_type) sock -> int *)
     (*               val getATMARK : ('af, active stream) sock -> bool *)
-    (*           end *)
+              end
 
     val sameAddr : 'af sock_addr * 'af sock_addr -> bool
     val familyOfAddr : 'af sock_addr -> AF.addr_family

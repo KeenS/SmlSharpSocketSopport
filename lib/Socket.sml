@@ -25,8 +25,9 @@ structure Socket :> SOCKET
     end
 
     structure SOCK = struct
-        datatype sock_type = SOCK_STREAM
-                           | SOCK_DGRAM
+        type sock_type = int
+        val SOCK_STREAM = (_import "socket_sock_stream": __attribute__((pure, fast)) () -> int)()
+        val SOCK_DGRAM = (_import "socket_sock_dgram"  : __attribute__((pure, fast)) () -> int)()
         val stream = SOCK_STREAM
         val dgram  = SOCK_DGRAM
         fun list () = [
@@ -37,41 +38,103 @@ structure Socket :> SOCKET
         fun fromString str =  Option.map #2 (List.find (fn (name, s) => name = str) (list()))
     end
 
-    (* structure Ctl : sig *)
-    (*               val getDEBUG : ('af, 'sock_type) sock -> bool *)
-    (*               val setDEBUG : ('af, 'sock_type) sock * bool -> unit *)
-    (*               val getREUSEADDR : ('af, 'sock_type) sock -> bool *)
-    (*               val setREUSEADDR : ('af, 'sock_type) sock * bool *)
-    (*                                  -> unit *)
-    (*               val getKEEPALIVE : ('af, 'sock_type) sock -> bool *)
-    (*               val setKEEPALIVE : ('af, 'sock_type) sock * bool *)
-    (*                                  -> unit *)
-    (*               val getDONTROUTE : ('af, 'sock_type) sock -> bool *)
-    (*               val setDONTROUTE : ('af, 'sock_type) sock * bool *)
-    (*                                  -> unit *)
-    (*               val getLINGER : ('af, 'sock_type) sock *)
-    (*                               -> Time.time option *)
-    (*               val setLINGER : ('af, 'sock_type) sock *)
-    (*                               * Time.time option -> unit *)
-    (*               val getBROADCAST : ('af, 'sock_type) sock -> bool *)
-    (*               val setBROADCAST : ('af, 'sock_type) sock * bool *)
-    (*                                  -> unit *)
-    (*               val getOOBINLINE : ('af, 'sock_type) sock -> bool *)
-    (*               val setOOBINLINE : ('af, 'sock_type) sock * bool *)
-    (*                                  -> unit *)
-    (*               val getSNDBUF : ('af, 'sock_type) sock -> int *)
-    (*               val setSNDBUF : ('af, 'sock_type) sock * int -> unit *)
-    (*               val getRCVBUF : ('af, 'sock_type) sock -> int *)
-    (*               val setRCVBUF : ('af, 'sock_type) sock * int -> unit *)
-    (*               val getTYPE : ('af, 'sock_type) sock -> SOCK.sock_type *)
-    (*               val getERROR : ('af, 'sock_type) sock -> bool *)
-    (*               val getPeerName : ('af, 'sock_type) sock *)
-    (*                                 -> 'af sock_addr *)
-    (*               val getSockName : ('af, 'sock_type) sock *)
-    (*                                 -> 'af sock_addr *)
-    (*               val getNREAD : ('af, 'sock_type) sock -> int *)
-    (*               val getATMARK : ('af, active stream) sock -> bool *)
-    (*           end *)
+    structure Ctl = struct
+        type optname = int
+        val SO_DEBUG     = (_import "socket_ctl_debug"    : __attribute__((pure, fast)) () -> optname)()
+        val SO_REUSEADDR = (_import "socket_ctl_reuseaddr": __attribute__((pure, fast)) () -> optname)()
+        val SO_KEEPALIVE = (_import "socket_ctl_keepalive": __attribute__((pure, fast)) () -> optname)()
+        val SO_DONTROUTE = (_import "socket_ctl_dontroute": __attribute__((pure, fast)) () -> optname)()
+        val SO_LINGER    = (_import "socket_ctl_linger"   : __attribute__((pure, fast)) () -> optname)()
+        val SO_BROADCAST = (_import "socket_ctl_broadcast": __attribute__((pure, fast)) () -> optname)()
+        val SO_OOBINLINE = (_import "socket_ctl_oobinline": __attribute__((pure, fast)) () -> optname)()
+        val SO_SNDBUF    = (_import "socket_ctl_sndbuf"   : __attribute__((pure, fast)) () -> optname)()
+        val SO_RCVBUF    = (_import "socket_ctl_rcvbuf"   : __attribute__((pure, fast)) () -> optname)()
+        val SO_TYPE      = (_import "socket_ctl_type"     : __attribute__((pure, fast)) () -> optname)()
+        val SO_ERROR     = (_import "socket_ctl_error"    : __attribute__((pure, fast)) () -> optname)()
+
+        val c_getsockopt = _import "socket_ctl_getsockopt": (('af, 'sock_type) sock, optname, int ref) -> int
+        val c_setsockopt = _import "socket_ctl_setsockopt": (('af, 'sock_type) sock, optname, int) -> int
+        val c_getsockopt_linger = _import "socket_ctl_getsockopt_linger": (('af, 'sock_type) sock, int ref) -> int
+        val c_setsockopt_linger = _import "socket_ctl_setsockopt_linger": (('af, 'sock_type) sock, int) -> int
+        val c_getpeername = _import "socket_ctl_getpeername": (('af, 'sock_type) sock, 'af sock_addr ref) -> int
+        val c_getsockname = _import "socket_ctl_getsockname": (('af, 'sock_type) sock, 'af sock_addr ref) -> int
+
+        fun genBoolOpt opt name = let
+            fun get sock = let val ret = ref 0
+                              in if c_getsockopt(sock, opt, ret) = 0
+                                 then case !ret of 0 => false | _ => true
+                                 else raise OS.SysErr("cannot get " ^ name, NONE)
+                              end
+            fun set (sock, v) = if c_setsockopt(sock, opt, if v then 1 else 0) = 0
+                                 then ()
+                                else raise OS.SysErr("cannot set " ^ name, NONE)
+        in
+            (get, set)
+        end
+
+        fun genIntOpt opt name = let
+            fun get sock = let val ret = ref 0
+                              in if c_getsockopt(sock, opt, ret) = 0
+                                 then !ret
+                                 else raise OS.SysErr("cannot get " ^ name, NONE)
+                              end
+            fun set (sock, v) = if c_setsockopt(sock, opt, v) = 0
+                                 then ()
+                                else raise OS.SysErr("cannot set " ^ name, NONE)
+        in
+            (get, set)
+        end
+
+
+        val (getDEBUG,     setDEBUG)     = genBoolOpt SO_DEBUG     "DEBUG"
+        val (getREUSEADDR, setREUSEADDR) = genBoolOpt SO_REUSEADDR "REUSEADDR"
+        val (getKEEPALIVE, setKEEPALIVE) = genBoolOpt SO_KEEPALIVE "KEEPALIVE"
+        val (getDONTROUTE, setDONTROUTE) = genBoolOpt SO_DONTROUTE "DONTROUTE"
+        val (getBROADCAST, setBROADCAST) = genBoolOpt SO_BROADCAST "BROADCAST"
+        val (getOOBINLINE, setOOBINLINE) = genBoolOpt SO_OOBINLINE "OOBINLINE"
+
+        fun getLINGER sock = let val ret = ref 0
+                       in if c_getsockopt_linger(sock, ret) = 0
+                          then case !ret of ~1 => NONE | linger => SOME(Time.fromSeconds(LargeInt.fromInt linger))
+                          else raise OS.SysErr("cannot get " ^ "LINGER", NONE)
+                       end
+        fun setLINGER (sock, v) = if c_setsockopt_linger(sock, Option.getOpt(Option.map (fn t => (LargeInt.toInt(Time.toSeconds(t)))) v, ~1)) = 0
+                            then ()
+                            else raise OS.SysErr("cannot set " ^ "LINGER", NONE)
+
+        val (getSNDBUF, setSNDBUF) = genIntOpt SO_SNDBUF "SNDBUF"
+        val (getRCVBUF, setRCVBUF) = genIntOpt SO_RCVBUF "RCVBUF"
+
+        fun getTYPE sock = let val ret = ref 0
+                       in if c_getsockopt(sock, SO_TYPE, ret) = 0
+                          then !ret
+                          else raise OS.SysErr("cannot get " ^ "TYPE", NONE)
+                       end
+        fun getERROR sock = let val ret = ref 0
+                       in if c_getsockopt(sock, SO_TYPE, ret) = 0
+                          then case!ret of 0 => false | _ => true
+                          else raise OS.SysErr("cannot get " ^ "ERROR", NONE)
+                       end
+
+        fun getPeerName sock = let
+            val addr = ref (Pointer.NULL ())
+        in
+            if c_getpeername(sock, addr) = 0
+            then !addr
+            else raise OS.SysErr("cannot get peer name", NONE)
+        end
+
+        fun getSockName sock = let
+            val addr = ref (Pointer.NULL ())
+        in
+            if c_getsockname(sock, addr) = 0
+            then !addr
+            else raise OS.SysErr("cannot get peer name", NONE)
+        end
+
+        (* val getNREAD : ('af, 'sock_type) sock -> int *)
+        (* val getATMARK : ('af, active stream) sock -> bool *)
+    end
 
     val sameAddr = op=
     val c_family_of_addr = _import "socket_family_of_addr": ('af sock_addr) -> int

@@ -46,6 +46,175 @@ socket_af_unix()
   return AF_UNIX;
 }
 
+int
+socket_sock_stream()
+{
+  return SOCK_STREAM;
+}
+
+int
+socket_sock_dgram()
+{
+  return SOCK_DGRAM;
+}
+
+
+
+int
+socket_ctl_getsockopt(int sock, int opt_name, int *ret)
+{
+  socklen_t len;
+
+  len = sizeof(int);
+  return getsockopt(sock, SOL_SOCKET, opt_name, &ret, &len);
+
+}
+
+int
+socket_ctl_setsockopt(int sock, int opt_name, int val)
+{
+  socklen_t len;
+
+  len = sizeof(int);
+  return setsockopt(sock, SOL_SOCKET, opt_name, &val, len);
+
+}
+
+int
+socket_ctl_getsockopt_linger(int sock, int *ret)
+{
+  int r;
+  socklen_t len;
+  struct linger linger;
+
+  len = sizeof(int);
+  r = getsockopt(sock, SOL_SOCKET, SO_LINGER, &linger, &len);
+
+  if (linger.l_onoff) {
+    *ret = linger.l_linger;
+  }
+  else {
+    *ret = -1;
+  }
+
+  return r;
+
+}
+
+int
+socket_ctl_setsockopt_linger(int sock, int val)
+{
+  socklen_t len;
+  struct linger linger;
+
+  len = sizeof(linger);
+  linger.l_onoff = 0 <= val;
+
+  return setsockopt(sock, SOL_SOCKET, SO_LINGER, &linger, len);
+
+}
+
+
+int
+socket_ctl_debug()
+{
+  return SO_DEBUG;
+}
+
+int
+socket_ctl_reuseaddr()
+{
+  return SO_REUSEADDR;
+}
+
+int
+socket_ctl_keepalive()
+{
+  return SO_KEEPALIVE;
+}
+int
+socket_ctl_dontroute()
+{
+  return SO_DONTROUTE;
+}
+
+int
+socket_ctl_linger()
+{
+  return SO_LINGER;
+}
+
+int
+socket_ctl_broadcast()
+{
+  return SO_BROADCAST;
+}
+
+int
+socket_ctl_oobinline()
+{
+  return SO_OOBINLINE;
+}
+
+int
+socket_ctl_sndebug()
+{
+  return SO_SNDBUF;
+}
+
+int
+socket_ctl_rcvbuf()
+{
+  return SO_RCVBUF;
+}
+
+int
+socket_ctl_type()
+{
+  return SO_TYPE;
+}
+
+int
+socket_ctl_error()
+{
+  return SO_ERROR;
+}
+
+
+int
+socket_ctl_getpeername(int sock, struct sockaddr**ret_addr)
+{
+  struct sockaddr addr;
+  socklen_t len;
+  int ret;
+
+  ret = getpeername(sock, &addr, &len);
+
+  *ret_addr = malloc(len);
+  if (*ret_addr == NULL || ret == -1)
+    return -1;
+
+  **ret_addr = addr;
+  return 0;
+}
+
+int
+socket_ctl_getsockname(int sock, struct sockaddr**ret_addr)
+{
+  struct sockaddr addr;
+  socklen_t len;
+  int ret;
+
+  ret = getsockname(sock, &addr, &len);
+
+  *ret_addr = malloc(len);
+  if (*ret_addr == NULL || ret == -1)
+    return -1;
+
+  **ret_addr = addr;
+  return 0;
+}
+
 
 int
 socket_family_of_addr(struct sockaddr *sock)

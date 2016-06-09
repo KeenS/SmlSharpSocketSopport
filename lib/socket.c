@@ -3,6 +3,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/ioctl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
@@ -213,6 +214,12 @@ socket_ctl_getsockname(int sock, struct sockaddr**ret_addr)
 
   **ret_addr = addr;
   return 0;
+}
+
+unsigned long int
+socket_ctl_siocinq()
+{
+  return FIONREAD;
 }
 
 

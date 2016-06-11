@@ -196,12 +196,23 @@ structure Socket :> SOCKET
          | _ =>  SOME (ret, !addr)
     end
 
-    (* val connect : ('af, 'sock_type) sock * 'af sock_addr *)
-    (*               -> unit *)
-    (* val connectNB : ('af, 'sock_type) sock * 'af sock_addr *)
-    (*                 -> bool *)
+    val c_connect = _import "socket_connect": (('af, passive stream) sock, 'af sock_addr) -> int
+    fun connect (sock, sa) = if c_connect (sock, sa) = 0
+                          then ()
+                          else raise OS.SysErr("failed to connect", NONE)
 
-    (* val close : ('af, 'sock_type) sock -> unit *)
+    val c_connect_nb = _import "socket_connect_nb": (('af, passive stream) sock, 'af sock_addr) -> int
+    fun connectNB (sock, sa) =
+      case c_connect_nb(sock, sa) of
+          ~1 => raise OS.SysErr("failed to accept", NONE)
+       |  ~2 => false
+       | _ =>  true
+
+
+    val c_close = _import "close": (('af, passive stream) sock) -> int
+    fun close sock = case c_close(sock) of
+                         0 => ()
+                       | _ => raise OS.SysErr("failed to close", NONE)
     (* datatype shutdown_mode *)
     (*   = NO_RECVS *)
     (*   | NO_SENDS *)

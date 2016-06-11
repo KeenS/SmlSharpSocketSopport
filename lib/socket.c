@@ -293,3 +293,36 @@ socket_accept_nb(int sockfd, struct sockaddr **addr)
   }
   return ret;
 }
+
+
+int
+socket_connect(int sockfd, struct sockaddr *addr)
+{
+  switch(addr->sa_family) {
+  case AF_INET:
+    return connect(sockfd, addr, sizeof(struct sockaddr_in));
+  case AF_INET6:
+    return connect(sockfd, addr, sizeof(struct sockaddr_in6));
+  case AF_UNIX:
+    return connect(sockfd, addr, sizeof(struct sockaddr_un));
+  default:
+    return -1;
+  }
+}
+
+int
+socket_connect_nb(int sockfd, struct sockaddr *addr)
+{
+  int ret;
+
+  set_fl(sockfd, O_NONBLOCK);
+  errno = 0;
+  ret = socket_connect(sockfd, addr);
+  if (ret == -1) {
+    switch(errno) {
+    case EWOULDBLOCK:
+      return -2;
+    }
+  }
+  return ret;
+}

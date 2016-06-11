@@ -68,12 +68,12 @@ signature SOCKET = sig
     val acceptNB : ('af, passive stream) sock
                    -> (('af, active stream) sock
                        * 'af sock_addr) option
-    (* val connect : ('af, 'sock_type) sock * 'af sock_addr *)
-    (*               -> unit *)
-    (* val connectNB : ('af, 'sock_type) sock * 'af sock_addr *)
-    (*                 -> bool *)
+    val connect : ('af, 'sock_type) sock * 'af sock_addr
+                  -> unit
+    val connectNB : ('af, 'sock_type) sock * 'af sock_addr
+                    -> bool
 
-    (* val close : ('af, 'sock_type) sock -> unit *)
+    val close : ('af, 'sock_type) sock -> unit
     (* datatype shutdown_mode *)
     (*   = NO_RECVS *)
     (*   | NO_SENDS *)

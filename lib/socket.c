@@ -5,6 +5,7 @@
 #include <sys/un.h>
 #include <sys/ioctl.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <limits.h>
@@ -217,11 +218,16 @@ socket_ctl_getsockname(int sock, struct sockaddr**ret_addr)
 }
 
 unsigned long int
-socket_ctl_siocinq()
+socket_ctl_fionread()
 {
   return FIONREAD;
 }
 
+unsigned long int
+socket_ctl_siocatmark()
+{
+  return SIOCATMARK;
+}
 
 int
 socket_family_of_addr(struct sockaddr *sock)

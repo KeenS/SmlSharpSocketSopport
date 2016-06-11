@@ -60,6 +60,7 @@ structure Socket :> SOCKET
         val c_getsockname = _import "socket_ctl_getsockname": (('af, 'sock_type) sock, 'af sock_addr ref) -> int
         val c_ioctl = _import "ioctl": (('af, 'sock_type) sock, word,  int ref) -> int
         val FIONREAD = (_import "socket_ctl_fionread":__attribute__((pure, fast)) () -> word)()
+        val SIOCATMARK = (_import "socket_ctl_siocatmark":__attribute__((pure, fast)) () -> word)()
 
         fun genBoolOpt opt name = let
             fun get sock = let val ret = ref 0
@@ -140,7 +141,14 @@ structure Socket :> SOCKET
            then ! ret
            else raise OS.SysErr("cannot get NREAD", NONE)
         end
-        (* val getATMARK : ('af, active stream) sock -> bool *)
+
+        fun getATMARK sock = let
+            val ret = ref 0
+        in if c_ioctl(sock, SIOCATMARK, ret) = 0
+           then case ! ret of 0 => false | _  => true
+           else raise OS.SysErr("cannot get ATMARK", NONE)
+        end
+
     end
 
     val sameAddr = op=

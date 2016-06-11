@@ -55,7 +55,7 @@ signature SOCKET = sig
                   val getSockName : ('af, 'sock_type) sock
                                     -> 'af sock_addr
                   val getNREAD : ('af, 'sock_type) sock -> int
-    (*               val getATMARK : ('af, active stream) sock -> bool *)
+                  val getATMARK : ('af, active stream) sock -> bool
               end
 
     val sameAddr : 'af sock_addr * 'af sock_addr -> bool

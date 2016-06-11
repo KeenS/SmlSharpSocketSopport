@@ -213,27 +213,114 @@ structure Socket :> SOCKET
     fun close sock = case c_close(sock) of
                          0 => ()
                        | _ => raise OS.SysErr("failed to close", NONE)
-    (* datatype shutdown_mode *)
-    (*   = NO_RECVS *)
-    (*   | NO_SENDS *)
-    (*   | NO_RECVS_OR_SENDS *)
-    (* val shutdown : ('af, 'mode stream) sock * shutdown_mode *)
-    (*                -> unit *)
+    datatype shutdown_mode
+      = NO_RECVS
+      | NO_SENDS
+      | NO_RECVS_OR_SENDS
+    val c_shutdown = _import "socket_shutdown": (('af, 'mode stream) sock, int) -> int
+    fun shutdown (sock, mode) = let
+        val mode = case mode of
+                      NO_RECVS => 0
+                    | NO_SENDS => 1
+                    | NO_RECVS_OR_SENDS => 2
+    in
+        case c_shutdown(sock, mode) of
+            0 => ()
+          | _ => raise OS.SysErr("failed to shutdown",  NONE)
+    end
 
-    (* type sock_desc *)
-    (* val sockDesc : ('af, 'sock_type) sock -> sock_desc *)
-    (* val sameDesc : sock_desc * sock_desc -> bool *)
-    (* val select : { *)
-    (*     rds : sock_desc list, *)
-    (*     wrs : sock_desc list, *)
-    (*     exs : sock_desc list, *)
-    (*     timeout : Time.time option *)
-    (* } *)
-    (*              -> { *)
-    (*         rds : sock_desc list, *)
-    (*         wrs : sock_desc list, *)
-    (*         exs : sock_desc list *)
-    (*     } *)
+    (* COPIED FROM SML# SOURCE *)
+
+    val prim_poll =
+        _import "prim_GenericOS_poll"
+        : (int array, word array, int, int) -> int
+
+    val SML_POLLIN = 0w1
+    val SML_POLLOUT = 0w2
+    val SML_POLLPRI = 0w4
+
+    type poll_desc = int * word
+    type poll_info = poll_desc
+
+    fun pollDesc (sock: ('af,'mode stream) sock) = (sock, 0w0) : poll_desc
+
+    fun pollIn ((fd, ev):poll_desc) =
+      (fd, Word32.orb (ev, SML_POLLIN)):poll_desc
+    fun pollOut ((fd, ev):poll_desc) =
+      (fd, Word32.orb (ev, SML_POLLOUT)):poll_desc
+    fun pollPri ((fd, ev):poll_desc) =
+      (fd, Word32.orb (ev, SML_POLLPRI)):poll_desc
+    fun isIn ((fd, ev):poll_info) =
+      Word32.andb (ev, Word32.notb SML_POLLIN) <> 0w0
+    fun isOut ((fd, ev):poll_info) =
+      Word32.andb (ev, Word32.notb SML_POLLOUT) <> 0w0
+    fun isPri ((fd, ev):poll_info) =
+      Word32.andb (ev, Word32.notb SML_POLLPRI) <> 0w0
+    fun infoToPollDesc (x:poll_info) = x:poll_desc
+
+    exception Poll = OS.IO.Poll
+
+    fun poll (descs, timeoutOpt) =
+      let
+          fun length (nil : poll_desc list, z) = z
+            | length (h::t, z) = length (t, z + 1)
+          val len = length (descs, 0)
+          val fdary = Array.array(len, 0)
+          val evary = Array.array(len, 0w0)
+          fun write (i, nil) = ()
+            | write (i, ((fd,ev):poll_desc)::t) =
+              (Array.update (fdary, i, fd);
+               Array.update (evary, i, ev);
+               write (i + 1, t))
+          val _ = write (0, descs)
+          val (sec, usec) =
+              case timeoutOpt of
+                  NONE => (~1, ~1)
+                | SOME t =>
+                  let
+                      val t = Time.toMicroseconds t
+                  in
+                      if IntInf.sign t < 0
+                      then raise OS.SysErr ("nagative timeout", NONE)
+                      else let val (sec, usec) = IntInf.divMod (t, 1000000)
+                           in (IntInf.toInt sec, IntInf.toInt usec)
+                           end
+                  end
+          val err = prim_poll (fdary, evary, sec, usec)
+          val _ = if err < 0 then raise OS.SysErr ("", NONE) else ()
+          fun unzip (i, z) =
+            if i < 0 then z
+            else unzip (i - 1, (Array.sub (fdary, i),
+                                Array.sub (evary, i)) :: z)
+      in
+          unzip (len, nil)
+      end
+
+
+    (* COPY END *)
+
+
+    type sock_desc = int
+    fun sockDesc  (sock: ('af, 'sock_type) sock) = sock: sock_desc
+    val sameDesc = op=
+    fun select  {
+        rds : sock_desc list,
+        wrs : sock_desc list,
+        exs : sock_desc list,
+        timeout : Time.time option
+    } = let
+        val rds = List.map (pollIn o pollDesc) rds
+        val wrs = List.map (pollOut o pollDesc) wrs
+                  (* FIXME: handle exs*)
+        val descs = rds @ wrs
+        val ret = poll(descs, timeout)
+    in
+        {
+          rds = List.map #1 (List.filter isIn ret),
+          wrs = List.map #1 (List.filter isOut ret),
+          exs = []
+        }
+    end
     (* val ioDesc : ('af, 'sock_type) sock -> OS.IO.iodesc *)
 
     (* type out_flags = {don't_route : bool, oob : bool} *)

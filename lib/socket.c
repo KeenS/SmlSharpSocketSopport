@@ -326,3 +326,20 @@ socket_connect_nb(int sockfd, struct sockaddr *addr)
   }
   return ret;
 }
+
+int
+socket_shutdown(int sockfd, int mode)
+{
+  int how;
+
+  switch(mode) {
+  case 0: how = SHUT_RD; break;
+  case 1: how = SHUT_WR; break;
+  case 2: how = SHUT_RDWR; break;
+  default:
+    /* FIXME: better error handling */
+    exit(1);
+  }
+
+  return shutdown(sockfd, how);
+}

@@ -81,27 +81,27 @@ structure Socket = struct
                     -> bool
 
     val close : ('af, 'sock_type) sock -> unit
-    (* datatype shutdown_mode *)
-    (*   = NO_RECVS *)
-    (*   | NO_SENDS *)
-    (*   | NO_RECVS_OR_SENDS *)
-    (* val shutdown : ('af, 'mode stream) sock * shutdown_mode *)
-    (*                -> unit *)
+    datatype shutdown_mode
+      = NO_RECVS
+      | NO_SENDS
+      | NO_RECVS_OR_SENDS
+    val shutdown : ('af, 'mode stream) sock * shutdown_mode
+                   -> unit
 
-    (* type sock_desc *)
-    (* val sockDesc : ('af, 'sock_type) sock -> sock_desc *)
-    (* val sameDesc : sock_desc * sock_desc -> bool *)
-    (* val select : { *)
-    (*     rds : sock_desc list, *)
-    (*     wrs : sock_desc list, *)
-    (*     exs : sock_desc list, *)
-    (*     timeout : Time.time option *)
-    (* } *)
-    (*              -> { *)
-    (*         rds : sock_desc list, *)
-    (*         wrs : sock_desc list, *)
-    (*         exs : sock_desc list *)
-    (*     } *)
+    type sock_desc (= int)
+    val sockDesc : ('af, 'sock_type) sock -> sock_desc
+    val sameDesc : sock_desc * sock_desc -> bool
+    val select : {
+        rds : sock_desc list,
+        wrs : sock_desc list,
+        exs : sock_desc list,
+        timeout : Time.time option
+    }
+                 -> {
+            rds : sock_desc list,
+            wrs : sock_desc list,
+            exs : sock_desc list
+        }
     (* val ioDesc : ('af, 'sock_type) sock -> OS.IO.iodesc *)
 
     (* type out_flags = {don't_route : bool, oob : bool} *)

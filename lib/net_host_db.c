@@ -6,15 +6,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <limits.h>
-
-#define SML_AF_INET4 0
-#define SML_AF_INET6 1
-#define SML_AF_INET_UNKNOWN -1
-
-
-/* TODO: more checks */
-#define smlaf_to_af(af) (af) == SML_AF_INET4 ? AF_INET : AF_INET6
-
+#include "net_host_db.h"
 
 typedef int sml_addr_family;
 
@@ -35,11 +27,7 @@ sml_addr_family
 sml_nhd_addrinfo_get_family(const struct addrinfo *info)
 {
 
-  switch(info->ai_family) {
-  case AF_INET: return SML_AF_INET4;
-  case AF_INET6: return SML_AF_INET6;
-  default: return SML_AF_INET_UNKNOWN;
-  }
+  return info->ai_family;
 }
 
 const char *
@@ -93,7 +81,7 @@ sml_nhd_get_nameinfo(int family, const void *addr, void(callback)(const char *))
   memset(&sock, 0, sizeof(struct sockaddr_storage));
 
   switch(family) {
-  case SML_AF_INET4: {
+  case AF_INET: {
     struct sockaddr_in *in;
     in = (struct sockaddr_in*)&sock;
     len = sizeof(struct sockaddr_in6);
@@ -102,7 +90,7 @@ sml_nhd_get_nameinfo(int family, const void *addr, void(callback)(const char *))
     break;
 
   }
-  case SML_AF_INET6: {
+  case AF_INET6: {
     struct sockaddr_in6 *in;
     in = (struct sockaddr_in6*)&sock;
     len = sizeof(struct sockaddr_in6);
@@ -141,20 +129,20 @@ sml_nhd_get_host_name(void (callback)(const char *))
 
 
 void
-sml_nhd_inaddr_to_string(int sml_addr_family, void *in, void (callback)(const char *))
+sml_nhd_inaddr_to_string(int addr_family, void *in, void (callback)(const char *))
 {
   const char *ret;
   size_t strsize;
 
-  switch(sml_addr_family) {
-  case SML_AF_INET4: {
+  switch(addr_family) {
+  case AF_INET: {
     char value[INET_ADDRSTRLEN];
     strsize=INET_ADDRSTRLEN;
     ret = inet_ntop(AF_INET, in, value, strsize);
     callback(ret);
     return;
   }
-  case SML_AF_INET6: {
+  case AF_INET6: {
     char value[INET6_ADDRSTRLEN];
     strsize=INET6_ADDRSTRLEN;
     ret = inet_ntop(AF_INET6, in, value, strsize);
@@ -184,7 +172,7 @@ sml_nhd_inaddr_from_string(const char *str, int *family)
   if (ret == 1) {
     result = malloc(sizeof(struct in_addr));
     memcpy(result, &result_in, sizeof(struct in_addr));
-    *family = SML_AF_INET4;
+    *family = AF_INET;
     return result;
   }
   if (ret == -1) {
@@ -197,7 +185,7 @@ sml_nhd_inaddr_from_string(const char *str, int *family)
   if (ret == 1) {
     result = malloc(sizeof(struct in6_addr));
     memcpy(result, &result_in6, sizeof(struct in6_addr));
-    *family = SML_AF_INET6;
+    *family = AF_INET6;
     return result;
   }
   return NULL;

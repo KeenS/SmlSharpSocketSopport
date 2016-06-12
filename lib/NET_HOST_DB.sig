@@ -1,6 +1,6 @@
 signature NET_HOST_DB = sig
     eqtype in_addr
-           eqtype addr_family
+    eqtype addr_family
     type entry
 
     val name : entry -> string

@@ -10,6 +10,8 @@ structure Socket :> SOCKET
     datatype passive = PASSIVE
     datatype active = ACTIVE
 
+    val EAGAIN = Option.valOf (SMLSharp_Runtime.syserror "again")
+
     structure AF = struct
         type addr_family = NetHostDB.addr_family
         val c_inet = _import "socket_af_inet": () -> int
@@ -321,50 +323,140 @@ structure Socket :> SOCKET
           exs = []
         }
     end
-    (* val ioDesc : ('af, 'sock_type) sock -> OS.IO.iodesc *)
+    (* fun ioDesc (sock: ('af, 'sock_type) sock) = sock: SMLSharp_OSIO.iodesc *)
 
-    (* type out_flags = {don't_route : bool, oob : bool} *)
-    (* type in_flags = {peek : bool, oob : bool} *)
+    type out_flags = {don't_route : bool, oob : bool}
+    type in_flags = {peek : bool, oob : bool}
 
-    (* val sendVec : ('af, active stream) sock *)
-    (*               * Word8VectorSlice.slice -> int *)
-    (* val sendArr : ('af, active stream) sock *)
-    (*               * Word8ArraySlice.slice -> int *)
-    (* val sendVec' : ('af, active stream) sock *)
-    (*                * Word8VectorSlice.slice *)
-    (*                * out_flags -> int *)
-    (* val sendArr' : ('af, active stream) sock *)
-    (*                * Word8ArraySlice.slice *)
-    (*                * out_flags -> int *)
-    (* val sendVecNB  : ('af, active stream) sock *)
-    (*                  * Word8VectorSlice.slice -> int option *)
-    (* val sendVecNB' : ('af, active stream) sock *)
-    (*                  * Word8VectorSlice.slice *)
-    (*                  * out_flags -> int option *)
-    (* val sendArrNB  : ('af, active stream) sock *)
-    (*                  * Word8ArraySlice.slice -> int option *)
-    (* val sendArrNB' : ('af, active stream) sock *)
-    (*                  * Word8ArraySlice.slice *)
-    (*                  * out_flags -> int option *)
+    val c_send = _import "socket_send": (('af, active stream) sock, Word8Vector.vector, int, int, word) -> int
+    val c_recv = _import "socket_recv": (('af, active stream) sock, Word8Array.array, int, int, word) -> int
+    val c_recvv = _import "socket_recvv": (('af, active stream) sock, word, int, (word8 ptr, int) -> ()) -> int
 
-    (* val recvVec  : ('af, active stream) sock * int *)
-    (*                -> Word8Vector.vector *)
-    (* val recvVec' : ('af, active stream) sock * int * in_flags *)
-    (*                -> Word8Vector.vector *)
-    (* val recvArr  : ('af, active stream) sock *)
-    (*                * Word8ArraySlice.slice -> int *)
-    (* val recvArr' : ('af, active stream) sock *)
-    (*                * Word8ArraySlice.slice *)
-    (*                * in_flags -> int *)
-    (* val recvVecNB  : ('af, active stream) sock * int *)
-    (*                  -> Word8Vector.vector option *)
-    (* val recvVecNB' : ('af, active stream) sock * int * in_flags *)
-    (*                  -> Word8Vector.vector option *)
-    (* val recvArrNB  : ('af, active stream) sock *)
-    (*                  * Word8ArraySlice.slice -> int option *)
-    (* val recvArrNB' : ('af, active stream) sock *)
-    (*                  * Word8ArraySlice.slice *)
-    (*                  * in_flags -> int option *)
+                                                                                                             val MSG_OOB       = (_import "socket_msg_oob":__attribute__((pure, fast)) () -> word)()
+    val MSG_DONTROUTE = (_import "socket_msg_dontroute":__attribute__((pure, fast)) () -> word)()
+    val MSG_DONTWAIT  = (_import "socket_msg_dontwait":__attribute__((pure, fast)) () -> word)()
+    val MSG_PEEK      = (_import "socket_msg_peek":__attribute__((pure, fast)) () -> word)()
+
+    fun sendV flags (sock, vec, start, last) =
+      case c_send(sock,  vec, start, last, flags) of
+          ~1 => raise OS.SysErr ("Cannot write to socket", NONE)
+        | ret => ret
+
+    fun sendA flags (sock, arr, start, last) =
+      sendV flags (sock, Word8Array.vector arr, start, last)
+
+    fun sendVS flags (sock, slice) = let
+        val (vec, start, last) = Word8VectorSlice.base slice
+    in
+        sendV flags (sock, vec, start, last)
+    end
+
+    fun sendAS flags (sock, slice) = let
+        val (arr, start, last) = Word8ArraySlice.base slice
+    in
+        sendA flags (sock, arr, start, last)
+    end
+
+    fun recvA flags (sock, arr, start, last) =
+      case c_recv(sock,  arr, start, last, flags) of
+          ~1 => raise OS.SysErr ("Cannot write to socket", NONE)
+        | ret => ret
+
+    fun recvV flags (sock, n) = let
+        val vec = ref (Word8Vector.fromList [])
+    in
+      case c_recvv(sock, flags, n, fn (wptr, len) => vec := Pointer.importBytes(wptr, len)) of
+          ~1 => raise OS.SysErr ("Cannot write to socket", NONE)
+        | ret => !vec
+    end
+
+    fun recvVNB flags (sock, n) = let
+        val vec = ref (Word8Vector.fromList [])
+    in
+      case c_recvv(sock, flags, n, fn (wptr, len) => vec := Pointer.importBytes(wptr, len)) of
+          ~1 => if SMLSharp_Runtime.errno() = EAGAIN
+                then NONE
+                else raise SMLSharp_Runtime.OS_SysErr ()
+        | ret => SOME(!vec)
+    end
+
+
+
+    fun recvAS flags (sock, slice) = let
+        val (arr, start, last) = Word8ArraySlice.base slice
+    in
+        recvA flags (sock, arr, start, last)
+    end
+
+    (* fun recvVS flags (sock, slice) = let *)
+    (*     val (vec, start, last) = Word8VectorSlice.base slice *)
+    (* in *)
+    (*     recvV flags (sock, vec, start, last) *)
+    (* end *)
+
+
+
+    fun withNB f flags args =
+      case f (Word.andb(flags, MSG_DONTWAIT)) args of
+          ~1 => if SMLSharp_Runtime.errno() = EAGAIN
+                then NONE
+                else raise SMLSharp_Runtime.OS_SysErr ()
+        | ret => SOME(ret)
+
+    fun withOutOption {don't_route = don'troute, oob = oob} f flags = let
+        val flags = if don'troute then Word.andb(flags, MSG_DONTROUTE) else flags
+        val flags = if oob then Word.andb(flags, MSG_OOB) else flags
+    in
+        f flags
+    end
+
+    fun withInOption {peek = peek, oob = oob} f flags = let
+        val flags = if peek then Word.andb(flags, MSG_PEEK) else flags
+        val flags = if oob then Word.andb(flags, MSG_OOB) else flags
+    in
+        f flags
+    end
+
+
+    val sendVec  = sendVS 0w0
+
+    val sendArr  = sendAS 0w0
+
+    fun sendVec' (sock: ('af, active stream) sock, slice, flagsRec) =
+      withOutOption flagsRec sendVS 0w0 (sock, slice)
+
+    fun sendArr' (sock: ('af, active stream) sock, slice, flagsRec) =
+      withOutOption flagsRec
+                    sendAS 0w0 (sock, slice)
+
+    val sendVecNB  = withNB sendVS 0w0
+
+    fun sendVecNB' (sock: ('af, active stream) sock, slice, flagsRec) =
+        withOutOption flagsRec (withNB sendVS) 0w0 (sock, slice)
+
+
+    val sendArrNB  = withNB sendAS 0w0
+
+    fun sendArrNB' (sock: ('af, active stream) sock, slice, flagsRec) =
+        withOutOption flagsRec (withNB sendAS) 0w0 (sock, slice)
+
+
+    val recvVec = recvV 0w0
+    fun recvVec' (sock: ('af, active stream) sock, size, flagsRec) =
+      withInOption flagsRec recvV 0w0 (sock, size)
+
+    val recvArr = recvAS 0w0
+    fun recvArr' (sock: ('af, active stream) sock, slice, flagsRec) =
+      withInOption flagsRec recvAS 0w0 (sock, slice)
+
+    val recvVecNB = recvVNB 0w0
+    fun recvVecNB' (sock: ('af, active stream) sock, size, flagsRec) =
+      withInOption flagsRec recvVNB 0w0 (sock, size)
+
+    val recvArrNB = withNB recvAS 0w0
+    fun recvArrNB' (sock: ('af, active stream) sock, slice, flagsRec) =
+      withInOption flagsRec (withNB recvAS) 0w0 (sock, slice)
+
 
     (* val sendVecTo : ('af, dgram) sock *)
     (*                 * 'af sock_addr *)

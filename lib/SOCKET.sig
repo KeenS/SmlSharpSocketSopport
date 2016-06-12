@@ -97,48 +97,48 @@ signature SOCKET = sig
         }
     (* val ioDesc : ('af, 'sock_type) sock -> OS.IO.iodesc *)
 
-    (* type out_flags = {don't_route : bool, oob : bool} *)
-    (* type in_flags = {peek : bool, oob : bool} *)
+    type out_flags = {don't_route : bool, oob : bool}
+    type in_flags = {peek : bool, oob : bool}
 
-    (* val sendVec : ('af, active stream) sock *)
-    (*               * Word8VectorSlice.slice -> int *)
-    (* val sendArr : ('af, active stream) sock *)
-    (*               * Word8ArraySlice.slice -> int *)
-    (* val sendVec' : ('af, active stream) sock *)
-    (*                * Word8VectorSlice.slice *)
-    (*                * out_flags -> int *)
-    (* val sendArr' : ('af, active stream) sock *)
-    (*                * Word8ArraySlice.slice *)
-    (*                * out_flags -> int *)
-    (* val sendVecNB  : ('af, active stream) sock *)
-    (*                  * Word8VectorSlice.slice -> int option *)
-    (* val sendVecNB' : ('af, active stream) sock *)
-    (*                  * Word8VectorSlice.slice *)
-    (*                  * out_flags -> int option *)
-    (* val sendArrNB  : ('af, active stream) sock *)
-    (*                  * Word8ArraySlice.slice -> int option *)
-    (* val sendArrNB' : ('af, active stream) sock *)
-    (*                  * Word8ArraySlice.slice *)
-    (*                  * out_flags -> int option *)
+    val sendVec : ('af, active stream) sock
+                  * Word8VectorSlice.slice -> int
+    val sendArr : ('af, active stream) sock
+                  * Word8ArraySlice.slice -> int
+    val sendVec' : ('af, active stream) sock
+                   * Word8VectorSlice.slice
+                   * out_flags -> int
+    val sendArr' : ('af, active stream) sock
+                   * Word8ArraySlice.slice
+                   * out_flags -> int
+    val sendVecNB  : ('af, active stream) sock
+                     * Word8VectorSlice.slice -> int option
+    val sendVecNB' : ('af, active stream) sock
+                     * Word8VectorSlice.slice
+                     * out_flags -> int option
+    val sendArrNB  : ('af, active stream) sock
+                     * Word8ArraySlice.slice -> int option
+    val sendArrNB' : ('af, active stream) sock
+                     * Word8ArraySlice.slice
+                     * out_flags -> int option
 
-    (* val recvVec  : ('af, active stream) sock * int *)
-    (*                -> Word8Vector.vector *)
-    (* val recvVec' : ('af, active stream) sock * int * in_flags *)
-    (*                -> Word8Vector.vector *)
-    (* val recvArr  : ('af, active stream) sock *)
-    (*                * Word8ArraySlice.slice -> int *)
-    (* val recvArr' : ('af, active stream) sock *)
-    (*                * Word8ArraySlice.slice *)
-    (*                * in_flags -> int *)
-    (* val recvVecNB  : ('af, active stream) sock * int *)
-    (*                  -> Word8Vector.vector option *)
-    (* val recvVecNB' : ('af, active stream) sock * int * in_flags *)
-    (*                  -> Word8Vector.vector option *)
-    (* val recvArrNB  : ('af, active stream) sock *)
-    (*                  * Word8ArraySlice.slice -> int option *)
-    (* val recvArrNB' : ('af, active stream) sock *)
-    (*                  * Word8ArraySlice.slice *)
-    (*                  * in_flags -> int option *)
+    val recvVec  : ('af, active stream) sock * int
+                   -> Word8Vector.vector
+    val recvVec' : ('af, active stream) sock * int * in_flags
+                   -> Word8Vector.vector
+    val recvArr  : ('af, active stream) sock
+                   * Word8ArraySlice.slice -> int
+    val recvArr' : ('af, active stream) sock
+                   * Word8ArraySlice.slice
+                   * in_flags -> int
+    val recvVecNB  : ('af, active stream) sock * int
+                     -> Word8Vector.vector option
+    val recvVecNB' : ('af, active stream) sock * int * in_flags
+                     -> Word8Vector.vector option
+    val recvArrNB  : ('af, active stream) sock
+                     * Word8ArraySlice.slice -> int option
+    val recvArrNB' : ('af, active stream) sock
+                     * Word8ArraySlice.slice
+                     * in_flags -> int option
 
     (* val sendVecTo : ('af, dgram) sock *)
     (*                 * 'af sock_addr *)

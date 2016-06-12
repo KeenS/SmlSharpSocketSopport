@@ -343,3 +343,60 @@ socket_shutdown(int sockfd, int mode)
 
   return shutdown(sockfd, how);
 }
+
+ssize_t
+socket_send(int sockfd, const char *buff, size_t start, size_t end, int flags)
+{
+
+  return send(sockfd, buff + start, end - start, flags);
+}
+
+ssize_t
+socket_recv(int sockfd, char *buff, size_t start, size_t end, int flags)
+{
+
+  return recv(sockfd, buff + start, end - start, flags);
+}
+
+
+ssize_t
+socket_recvv(int sockfd, int flags, int n, void(callback)(const char *ptr, size_t len))
+{
+
+  char *buf;
+  ssize_t ret;
+
+  buf = alloca(n);
+
+  ret = recv(sockfd,buf, n, flags);
+
+  if(0 <= ret)
+    callback(buf, ret);
+
+  return ret;
+}
+
+
+int
+socket_msg_oob()
+{
+  return MSG_OOB;
+}
+
+int
+socket_msg_dontroute()
+{
+  return MSG_DONTROUTE;
+}
+
+int
+socket_msg_dontwait()
+{
+  return MSG_DONTWAIT;
+}
+
+int
+socket_msg_peek()
+{
+  return MSG_PEEK;
+}

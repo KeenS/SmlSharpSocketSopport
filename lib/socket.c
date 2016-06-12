@@ -30,6 +30,21 @@ set_fl(int fd, int flags)
   }
 }
 
+static socklen_t
+sockaddr_len(const struct sockaddr *sockaddr)
+{
+  switch (sockaddr->sa_family) {
+  case AF_INET:
+    return sizeof(struct sockaddr_in);
+  case AF_INET6:
+    return sizeof(struct sockaddr_in6);
+  case AF_UNIX:
+    return sizeof(struct sockaddr_un);
+  default:
+    exit(1);
+  }
+}
+
 int
 socket_af_inet()
 {
@@ -240,19 +255,7 @@ socket_bind(int sockfd, struct sockaddr *addr)
 {
   socklen_t len;
 
-  switch (addr->sa_family) {
-  case AF_INET:
-    len = sizeof(struct sockaddr_in);
-    break;
-  case AF_INET6:
-    len = sizeof(struct sockaddr_in6);
-    break;
-  case AF_UNIX:
-    len = sizeof(struct sockaddr_un);
-    break;
-  default:
-    return -1;
-  }
+  len = sockaddr_len(addr);
 
   return bind(sockfd, addr, len);
 }
@@ -399,4 +402,40 @@ int
 socket_msg_peek()
 {
   return MSG_PEEK;
+}
+
+ssize_t
+socket_sendto(int sockfd, const char* buf, int start, int end, int flags, struct sockaddr *dest_addr)
+{
+  return sendto(sockfd, buf + start, end - start, flags, dest_addr, sockaddr_len(dest_addr));
+}
+
+ssize_t
+socket_recvfrom(int sockfd, char* buf, int start, int end, int flags, struct sockaddr **dest_addr)
+{
+  socklen_t len;
+
+  *dest_addr = malloc(sizeof(struct sockaddr_storage));
+
+  return recvfrom(sockfd, buf + start, end - start, flags, *dest_addr, &len);
+}
+
+ssize_t
+socket_recvnfrom(int sockfd, int flags, int n, struct sockaddr **dest_addr, void(callback)(const char *ptr, size_t len))
+{
+  socklen_t len;
+  char *buf;
+  ssize_t ret;
+
+  buf = alloca(n);
+
+  *dest_addr = malloc(sizeof(struct sockaddr_storage));
+
+
+  ret = recvfrom(sockfd, buf, n, flags, *dest_addr, &len);
+
+  if(0 <= ret)
+    callback(buf, len);
+
+  return ret;
 }

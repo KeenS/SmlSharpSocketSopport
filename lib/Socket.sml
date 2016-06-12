@@ -388,14 +388,6 @@ structure Socket :> SOCKET
         recvA flags (sock, arr, start, last)
     end
 
-    (* fun recvVS flags (sock, slice) = let *)
-    (*     val (vec, start, last) = Word8VectorSlice.base slice *)
-    (* in *)
-    (*     recvV flags (sock, vec, start, last) *)
-    (* end *)
-
-
-
     fun withNB f flags args =
       case f (Word.andb(flags, MSG_DONTWAIT)) args of
           ~1 => if SMLSharp_Runtime.errno() = EAGAIN
@@ -458,60 +450,104 @@ structure Socket :> SOCKET
       withInOption flagsRec (withNB recvAS) 0w0 (sock, slice)
 
 
-    (* val sendVecTo : ('af, dgram) sock *)
-    (*                 * 'af sock_addr *)
-    (*                 * Word8VectorSlice.slice -> unit *)
-    (* val sendArrTo : ('af, dgram) sock *)
-    (*                 * 'af sock_addr *)
-    (*                 * Word8ArraySlice.slice -> unit *)
-    (* val sendVecTo' : ('af, dgram) sock *)
-    (*                  * 'af sock_addr *)
-    (*                  * Word8VectorSlice.slice *)
-    (*                  * out_flags -> unit *)
-    (* val sendArrTo' : ('af, dgram) sock *)
-    (*                  * 'af sock_addr *)
-    (*                  * Word8ArraySlice.slice *)
-    (*                  * out_flags -> unit *)
-    (* val sendVecToNB  : ('af, dgram) sock *)
-    (*                    * 'af sock_addr *)
-    (*                    * Word8VectorSlice.slice -> bool *)
-    (* val sendVecToNB' : ('af, dgram) sock *)
-    (*                    * 'af sock_addr *)
-    (*                    * Word8VectorSlice.slice *)
-    (*                    * out_flags -> bool *)
-    (* val sendArrToNB  : ('af, dgram) sock *)
-    (*                    * 'af sock_addr *)
-    (*                    * Word8ArraySlice.slice -> bool *)
-    (* val sendArrToNB' : ('af, dgram) sock *)
-    (*                    * 'af sock_addr *)
-    (*                    * Word8ArraySlice.slice *)
-    (*                    * out_flags -> bool *)
+    val c_sendto = _import "socket_sendto": (('af, dgram) sock, Word8Vector.vector, int, int, word, 'af sock_addr) -> int
+    val c_recvfrom = _import "socket_recvfrom": (('af, dgram) sock, Word8Array.array, int, int, word, 'af sock_addr ref) -> int
+    val c_recvvfrom = _import "socket_recvvfrom": (('af, dgram) sock, int, word, 'af sock_addr ref, (word8 ptr, int) -> ()) -> int
 
-    (* val recvVecFrom  : ('af, dgram) sock * int *)
-    (*                    -> Word8Vector.vector *)
-    (*                       * 'sock_type sock_addr *)
-    (* val recvVecFrom' : ('af, dgram) sock * int * in_flags *)
-    (*                    -> Word8Vector.vector *)
-    (*                       * 'sock_type sock_addr *)
-    (* val recvArrFrom  : ('af, dgram) sock *)
-    (*                    * Word8ArraySlice.slice *)
-    (*                    -> int * 'af sock_addr *)
-    (* val recvArrFrom' : ('af, dgram) sock *)
-    (*                    * Word8ArraySlice.slice *)
-    (*                    * in_flags -> int * 'af sock_addr *)
-    (* val recvVecFromNB  : ('af, dgram) sock * int *)
-    (*                      -> (Word8Vector.vector *)
-    (*                          * 'sock_type sock_addr) option *)
-    (* val recvVecFromNB' : ('af, dgram) sock * int * in_flags *)
-    (*                      -> (Word8Vector.vector *)
-    (*                          * 'sock_type sock_addr) option *)
-    (* val recvArrFromNB  : ('af, dgram) sock *)
-    (*                      * Word8ArraySlice.slice *)
-    (*                      -> (int * 'af sock_addr) option *)
-    (* val recvArrFromNB' : ('af, dgram) sock *)
-    (*                      * Word8ArraySlice.slice *)
-    (*                      * in_flags *)
-    (*                      -> (int * 'af sock_addr) option  *)
+    fun sendToV flags (sock: ('af, dgram) sock, vec, start, last, addr) =
+      c_sendto (sock, vec, start, last, flags, addr)
+    fun sendToA flags (sock: ('af, dgram) sock, arr, start, last, addr) =
+      c_sendto (sock, Word8Array.vector arr, start, last, flags, addr)
+
+    fun sendToVS flags (sock: ('af, dgram) sock, addr, slice) = let
+        val (vec, start, last) = Word8VectorSlice.base slice
+    in sendToV flags (sock, vec, start, last, addr) end
+    fun sendToAS flags (sock: ('af, dgram) sock, addr, slice) = let
+        val (arr, start, last) = Word8ArraySlice.base slice
+    in sendToA flags (sock, arr, start, last, addr) end
+
+    fun recvFromA flags (sock: ('af, dgram) sock, arr, start, last) = let
+        val src_addr = ref (Pointer.NULL())
+        val ret = c_recvfrom(sock, arr, start, last, flags, src_addr)
+    in
+        (ret, !src_addr)
+    end
+
+    fun recvFromV flags (sock: ('af, dgram) sock, n) = let
+        val vec = ref (Word8Vector.fromList [])
+        val src_addr = ref (Pointer.NULL())
+    in
+        case c_recvvfrom(sock, n, flags, src_addr, fn (ptr, len) => vec := Pointer.importBytes(ptr, len)) of
+            ~1 => raise OS.SysErr ("Cannot write to socket", NONE)
+          | ret => (!vec, !src_addr)
+    end
+
+    fun recvFromAS flags (sock: ('af, dgram) sock, slice) = let
+        val (vec, start, last) = Word8ArraySlice.base slice
+    in recvFromA flags (sock, vec, start, last) end
+
+    fun recvFromVNB flags (sock: ('af, dgram) sock, n) = let
+        val vec = ref (Word8Vector.fromList [])
+        val src_addr = ref (Pointer.NULL())
+    in
+        case c_recvvfrom(sock, n, flags, src_addr, fn (ptr, len) => vec := Pointer.importBytes(ptr, len)) of
+            ~1 => if SMLSharp_Runtime.errno() = EAGAIN
+                  then NONE
+                  else raise SMLSharp_Runtime.OS_SysErr ()
+          | ret => SOME(!vec, !src_addr)
+    end
+
+    (* past definition is no more needed, so override it *)
+    fun withNB f flags args =
+      case f (Word.andb(flags, MSG_DONTWAIT)) args of
+          ~1 => if SMLSharp_Runtime.errno() = EAGAIN
+                then false
+                else raise SMLSharp_Runtime.OS_SysErr ()
+        | ret => true
+
+    fun withNB' f flags args =
+      case f (Word.andb(flags, MSG_DONTWAIT)) args of
+          (~1, _) => if SMLSharp_Runtime.errno() = EAGAIN
+                     then NONE
+                     else raise SMLSharp_Runtime.OS_SysErr ()
+        | x => SOME(x)
+
+
+    fun sendVecTo args = ignore (sendToVS 0w0 args)
+    fun sendArrTo args = ignore (sendToAS 0w0 args)
+
+    fun sendVecTo' (sock: ('af, dgram) sock, addr, slice, flagsRec) =
+      ignore (withOutOption flagsRec sendToVS 0w0 (sock, addr, slice))
+
+    fun sendArrTo' (sock: ('af, dgram) sock, addr, slice, flagsRec) =
+      ignore (withOutOption flagsRec sendToAS 0w0 (sock, addr, slice))
+
+
+    fun sendVecToNB args = withNB sendToVS 0w0 args
+    fun sendVecToNB' (sock: ('af, dgram) sock, addr, slice, flagsRec) =
+      withOutOption flagsRec (withNB sendToVS) 0w0 (sock, addr, slice)
+
+    fun sendArrToNB args = withNB sendToAS 0w0 args
+    fun sendArrToNB' (sock: ('af, dgram) sock, addr, slice, flagsRec) =
+      withOutOption flagsRec (withNB sendToAS) 0w0 (sock, addr, slice)
+
+
+    val recvVecFrom = recvFromV 0w0
+    fun recvVecFrom' (sock: ('af, dgram) sock, n, flagsRec) =
+      withInOption flagsRec recvFromV 0w0 (sock, n)
+
+    val recvArrFrom  = recvFromAS 0w0
+    fun recvArrFrom'(sock: ('af, dgram) sock, slice, flagsRec) =
+      withInOption flagsRec recvFromAS 0w0 (sock, slice)
+
+    val recvVecFromNB = recvFromVNB 0w0
+    fun recvVecFromNB' (sock: ('af, dgram) sock, n, flagsRec) =
+      withInOption flagsRec recvFromVNB 0w0 (sock, n)
+
+
+    val recvArrFromNB = withNB' recvFromAS 0w0
+    fun recvArrFromNB' (sock: ('af, dgram) sock, slice, flagsRec) =
+      withInOption flagsRec (withNB' recvFromAS) 0w0 (sock, slice)
 
 
 end
